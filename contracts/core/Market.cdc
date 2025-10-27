@@ -2,6 +2,8 @@ import "FungibleToken"
 import "FlowToken"
 import "TrixyTypes"
 import "TrixyEvents"
+import "DeFiActions"
+import "FungibleTokenConnectors"
 
 access(all) contract Market {
     
@@ -25,6 +27,9 @@ access(all) contract Market {
         
         access(self) let yieldVault: @FlowToken.Vault
         access(all) var totalYieldEarned: UFix64
+        
+        access(self) var yieldVaultSource: {DeFiActions.Source}?
+        access(self) var yieldVaultSink: {DeFiActions.Sink}?
         
         init(
             id: UInt64,
@@ -57,6 +62,9 @@ access(all) contract Market {
             self.optionStats = {}
             self.userPositions = {}
             self.totalYieldEarned = 0.0
+            
+            self.yieldVaultSource = nil
+            self.yieldVaultSink = nil
             
             
             for option in options {
@@ -94,8 +102,34 @@ access(all) contract Market {
             TrixyEvents.emitBetPlaced(marketId: self.id, user: user, selectedOption: option, amount: netAmount)
         }
         
+        access(all) fun setupFlowActionsConnectors(
+            vaultCap: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>,
+            maxBalance: UFix64?
+        ) {
+            pre {
+                vaultCap.check(): "Invalid vault capability"
+                self.yieldVaultSource == nil: "Connectors already configured"
+            }
+            
+            self.yieldVaultSource = FungibleTokenConnectors.VaultSource(
+                min: 0.0,
+                withdrawVault: vaultCap,
+                uniqueID: nil
+            )
+            
+            self.yieldVaultSink = FungibleTokenConnectors.VaultSink(
+                max: maxBalance,
+                depositVault: vaultCap,
+                uniqueID: nil
+            )
+        }
+        
         access(self) fun depositToYieldProtocol(amount: UFix64) {
             let funds <- self.vault.withdraw(amount: amount) as! @FlowToken.Vault
+            
+            if let sink = self.yieldVaultSink {
+                sink.depositCapacity(from: &funds as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
+            }
             
             self.yieldVault.deposit(from: <- funds)
             
@@ -125,7 +159,6 @@ access(all) contract Market {
             let balance = self.yieldVault.balance
             
             if balance > 0.0 {
-                
                 var totalStaked = 0.0
                 for option in self.options {
                     totalStaked = totalStaked + self.optionStats[option]!.totalStaked
@@ -224,6 +257,13 @@ access(all) contract Market {
                 stats.append(self.optionStats[option]!)
             }
             return stats
+        }
+        
+        access(all) fun getFlowActionsStatus(): {String: Bool} {
+            return {
+                "hasSource": self.yieldVaultSource != nil,
+                "hasSink": self.yieldVaultSink != nil
+            }
         }
     }
     

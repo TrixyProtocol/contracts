@@ -1,6 +1,7 @@
 import "FungibleToken"
 import "FlowToken"
 import "IStakingProtocol"
+import "PriceOracle"
 
 access(all) contract AnkrAdapter: IStakingProtocol {
     
@@ -34,8 +35,7 @@ access(all) contract AnkrAdapter: IStakingProtocol {
     }
     
     access(all) fun getCurrentAPY(): UFix64 {
-        
-        return self.mockAPY
+        return PriceOracle.calculateAPY(protocol: "ankr")
     }
     
     access(all) fun getBalance(positionId: String): UFix64 {
