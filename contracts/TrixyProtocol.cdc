@@ -33,7 +33,7 @@ access(all) contract TrixyProtocol {
                 protocolFee: TrixyProtocol.protocolFee
             )
             
-            TrixyEvents.emitMarketCreated(marketId: marketId, question: question, endTime: endTime, options: options, creator: self.owner!.address)
+            TrixyEvents.emitMarketCreated(marketId: marketId, question: question, endTime: endTime, options: options, yieldProtocol: yieldProtocol, creator: self.owner!.address)
             
             self.markets[marketId] <-! market
             return marketId

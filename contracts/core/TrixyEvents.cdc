@@ -7,6 +7,7 @@ access(all) contract TrixyEvents {
         question: String,
         endTime: UFix64,
         options: [String],
+        yieldProtocol: String,
         creator: Address
     )
     
@@ -47,8 +48,8 @@ access(all) contract TrixyEvents {
         timestamp: UFix64
     )
     
-    access(all) fun emitMarketCreated(marketId: UInt64, question: String, endTime: UFix64, options: [String], creator: Address) {
-        emit MarketCreated(marketId: marketId, question: question, endTime: endTime, options: options, creator: creator)
+    access(all) fun emitMarketCreated(marketId: UInt64, question: String, endTime: UFix64, options: [String], yieldProtocol: String, creator: Address) {
+        emit MarketCreated(marketId: marketId, question: question, endTime: endTime, options: options, yieldProtocol: yieldProtocol, creator: creator)
     }
     
     access(all) fun emitBetPlaced(marketId: UInt64, user: Address, selectedOption: String, amount: UFix64) {
