@@ -23,7 +23,7 @@ access(all) contract Market {
         
         access(self) let optionStats: {String: TrixyTypes.ProtocolStats}
         
-        access(self) let userPositions: {Address: TrixyTypes.UserPosition}
+        access(self) let userPositions: {Address: [TrixyTypes.UserPosition]}
         
         access(self) let yieldVault: @FlowToken.Vault
         access(all) var totalYieldEarned: UFix64
@@ -78,7 +78,6 @@ access(all) contract Market {
                 getCurrentBlock().timestamp < self.endTime: "Market ended"
                 self.options.contains(option): "Invalid option"
                 payment.balance > 0.0: "Amount must be > 0"
-                self.userPositions[user] == nil: "User already has position"
             }
             
             let amount = payment.balance
@@ -93,7 +92,12 @@ access(all) contract Market {
             
             self.vault.deposit(from: <- payment)
             
-            self.userPositions[user] = TrixyTypes.UserPosition(protocol: option, amount: netAmount)
+            let newPosition = TrixyTypes.UserPosition(protocol: option, amount: netAmount)
+            if self.userPositions[user] == nil {
+                self.userPositions[user] = [newPosition]
+            } else {
+                self.userPositions[user]!.append(newPosition)
+            }
             
             self.optionStats[option]!.updateStake(amount: netAmount)
             
@@ -183,21 +187,32 @@ access(all) contract Market {
             pre {
                 self.status == TrixyTypes.MarketStatus.Resolved: "Market not resolved"
                 self.userPositions[user] != nil: "No position found"
-                !self.userPositions[user]!.claimed: "Already claimed"
+                self.userPositions[user]!.length > 0: "No positions found"
             }
             
-            let position = self.userPositions[user]!
-            let payout = self.calculatePayout(position: position)
+            let positions = self.userPositions[user]!
+            var totalPayout = 0.0
+            let updatedPositions: [TrixyTypes.UserPosition] = []
             
+            for position in positions {
+                if !position.claimed {
+                    let payout = self.calculatePayout(position: position)
+                    totalPayout = totalPayout + payout
+                    
+                    let updatedPosition = TrixyTypes.UserPosition(protocol: position.protocol, amount: position.amount)
+                    updatedPosition.setClaimed()
+                    updatedPosition.setYield(amount: payout - position.amount)
+                    updatedPositions.append(updatedPosition)
+                } else {
+                    updatedPositions.append(position)
+                }
+            }
             
-            let updatedPosition = TrixyTypes.UserPosition(protocol: position.protocol, amount: position.amount)
-            updatedPosition.setClaimed()
-            updatedPosition.setYield(amount: payout - position.amount)
-            self.userPositions[user] = updatedPosition
+            self.userPositions[user] = updatedPositions
             
-            TrixyEvents.emitWinningsClaimed(marketId: self.id, user: user, payout: payout)
+            TrixyEvents.emitWinningsClaimed(marketId: self.id, user: user, payout: totalPayout)
             
-            return <- self.vault.withdraw(amount: payout) as! @FlowToken.Vault
+            return <- self.vault.withdraw(amount: totalPayout) as! @FlowToken.Vault
         }
         
         access(self) fun calculatePayout(position: TrixyTypes.UserPosition): UFix64 {
@@ -243,7 +258,7 @@ access(all) contract Market {
             )
         }
         
-        access(all) fun getPosition(user: Address): TrixyTypes.UserPosition? {
+        access(all) fun getPositions(user: Address): [TrixyTypes.UserPosition]? {
             return self.userPositions[user]
         }
         
