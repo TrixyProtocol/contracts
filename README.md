@@ -80,7 +80,7 @@ Standard interface for staking protocol adapters:
 ## Deployed Contracts
 
 ### Flow Testnet
-- **Account**: `0xe4a8713903104ee5`
+- **Account**: `0x3564db973ae8bb36`
 - **Contracts**:
   - `TrixyTypes`
   - `TrixyEvents`
@@ -90,7 +90,7 @@ Standard interface for staking protocol adapters:
   - `FigmentAdapter`
   - `Market`
   - `TrixyProtocol`
-  - `PriceOracle` - Deployed at `0xe3f7e4d39675d8d3`
+  - `PriceOracle`
 
 ## Scripts
 
